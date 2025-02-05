@@ -8,7 +8,7 @@ export const Users = pgTable('users', {
     createAt: timestamp('create_at').defaultNow().notNull()
 })
 
-export const Report = pgTable('report', {
+export const Reports = pgTable('reports', {
     id: serial('id').primaryKey(),
     userId:integer('user_id').references(() => Users.id).notNull(),
     location: text('location').notNull(),
@@ -33,9 +33,9 @@ export const Rewards = pgTable('rewards', {
 
 })
 
-export const CollectedWaste = pgTable('collected_waste', {
+export const CollectedWastes = pgTable('collected_wastes', {
     id: serial('id').primaryKey(),
-    reportId: integer('report_id').references(() => Report.id).notNull(),
+    reportId: integer('report_id').references(() => Reports.id).notNull(),
     collectorId: integer('collector_id').references(() => Users.id).notNull(),
     CollectionDate: timestamp('collection_date').notNull(),
     status: varchar('status', {length:255}).notNull().default('collected'),
