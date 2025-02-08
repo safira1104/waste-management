@@ -3,7 +3,7 @@ import {db} from './dbConfig';
 import {Notifications, Users, Transactions} from './schema';
 import {eq, sql, and, desc} from 'drizzle-orm';
 import { date } from 'drizzle-orm/mysql-core';
-import { error } from 'console';
+
 
 export async function createUser(email:string, name:string) {
     try {
@@ -21,7 +21,7 @@ export async function getUserByEmail(email:string){
         return user;
     }catch(error){
         console.error('Error fetching user by email', error)
-        return null
+        return null;
     }
 }
 
@@ -30,7 +30,7 @@ export async function getUnreadNotifications(userId:number) {
         return await db.select().from(Notifications).where(and(eq(Notifications.userId, userId), eq(Notifications.isRead, false))).execute();
     }catch(error){
         console.error('Error fetching unread notifications', error)
-        return null
+        return null;
     }
 }
 
@@ -38,6 +38,7 @@ export async function getUserBalance(userId:number):Promise<number> {
     const transactions = await getRewardTransactions(userId) || [];
 
     if(!transactions) return 0;
+
     const balance = transactions.reduce((acc:number, transaction:any)=> {
         return transaction.type.startsWith('earned') ? acc + transaction.amount : acc - transaction.amount
     },0)
@@ -56,7 +57,7 @@ export async function getRewardTransactions(userId:number) {
         
         const formattedTransactions = transactions.map(t=> ({
             ...t,
-            date: t.date.toISOString().split('T')[0]
+            date: t.date instanceof Date ? t.date.toISOString().split('T')[0] : t.date
         }))
 
         return formattedTransactions;
