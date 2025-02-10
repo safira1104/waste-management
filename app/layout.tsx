@@ -9,6 +9,8 @@ import './globals.css'
 
 import {Toaster} from 'react-hot-toast'
 import Header from "@/components/header"
+import Sidebar from "@/components/sidebar"
+import { SidebarOpen } from "lucide-react"
 
 const inter = Inter({subsets: ['latin'] })
 
@@ -29,6 +31,7 @@ children,
           <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} totalEarnings={totalEarnings} />
           <div className="flex  flex-1">
             {/* sidebar */}
+            <Sidebar open={SidebarOpen} />
             <main className="flex-1 p-4 lg:p-8 ml-0 lg:ml-64 transition-all duration-300 ">
               {children}
 

@@ -1,43 +1,23 @@
+// @ts-nocheck
 'use client'
 
-import { useState, useEffect, use } from "react"
+import { useState, useEffect} from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "./ui/button"
-import {Menu, Coins, Leaf, Search,Bell,ChevronDown, LogIn, LogOut, LogInIcon, User} from "lucide-react"
+import {Menu, Coins, Leaf, Search,Bell,ChevronDown, LogIn, LogOut, User} from "lucide-react"
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu"
 
 import { Badge } from "./ui/badge"
-import {Web3Auth} from '@web3auth/modal'
+import { Web3Auth } from '@web3auth/modal'
 
-import { CHAIN_NAMESPACES, IProvider, WEB3AUTH_NETWORK } from "@web3auth/base"
-import {EthereumPrivateKeyProvider} from "@web3auth/ethereum-provider"
+import { web3Auth, connectWeb3Auth, logoutWeb3Auth } from "@/utils/web3auth";
 import { createUser, getUnreadNotifications, getUserBalance, getUserByEmail, markNotificationAsRead } from "@/utils/db/actions"
-import { asc, not } from "drizzle-orm"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
 
-const clientId = process.env.WEB3_AUTH_CLIENT_ID
 
-const chainConfig = {
-    chainNamespace:CHAIN_NAMESPACES.EIP155,
-    chainId:"0xaa36a7",
-    rpcTarget: 'https://rpc.ankr.com/eth_sepolia',
-    displayName: 'Sepolia Testnet',
-    blockExplorerUrl:'https://sepolia.etherscan.io',
-    ticker: 'ETH',
-    tickerName: 'Ethereum',
-    logo:'https://assets.web3auth.io/evm-chains/sepolia.png',
-}
 
-const privateKeyProvider= new EthereumPrivateKeyProvider({
-    config: {chainConfig},
-});
-const web3Auth = new Web3Auth({
-    clientId,
-    web3AuthNetwork:WEB3AUTH_NETWORK.TESTNET,
-    privateKeyProvider
-});
 
 interface HeaderProps {
     onMenuClick: () => void;
@@ -45,7 +25,7 @@ interface HeaderProps {
 };
 
 export default function Header({onMenuClick, totalEarnings}: HeaderProps){
-    const [provider, setProvider] = useState<IProvider | null>(null);
+    
     const [loggedIn, setLoggedIn] = useState(false);
     const [loading, setLoading] = useState(true);
     const [userInfo, setUserInfo] = useState<any>(null);
@@ -53,35 +33,38 @@ export default function Header({onMenuClick, totalEarnings}: HeaderProps){
     const [notification, setNotification] = useState<Notification[]>([]);
     const [balance, setBalance] = useState(0);
     const isMobile = useMediaQuery("(max-width: 768px)");
+
     
-    useEffect(()=> {
+    useEffect(() => {
         const init = async () => {
-                try {
-                    await web3Auth.initModal();
-                    setProvider(web3Auth.provider);
-
-                    if(web3Auth.connected){
-                        setLoggedIn(true);
-                        const user = await web3Auth.getUserInfo();
-                        setUserInfo(user);
-
-                        if(user.email){
-                            localStorage.setItem('userEmail', user.email);
-                            try{
-                                await createUser(user.email, user.name || 'Anonymous user');
-                            }catch(error){
-                                console.error('Error creating user', error);
-                            }
+            try {
+                await web3Auth.initModal();
+    
+                if (web3Auth.connected) {
+                    setLoggedIn(true);
+                    const user = await web3Auth.getUserInfo();
+                    setUserInfo(user);
+    
+                    if (user.email) {
+                        localStorage.setItem('userEmail', user.email);
+                        try {
+                            await createUser(user.email, user.name || 'Anonymous user');
+                        } catch (error) {
+                            console.error('Error creating user', error);
                         }
                     }
-                } catch (error) {
-                    console.error('Error initializing web3auth', error);
-                }finally{
-                    setLoading(false);
                 }
+            } catch (error) {
+                console.error('Error initializing web3auth', error);
+            } finally {
+                setLoading(false);
+            }
         };
+    
         init();
-    },[]);
+    }, []);
+    
+    
 
     useEffect(() => {
         const fetchNotifications = async () =>  {
@@ -92,7 +75,7 @@ export default function Header({onMenuClick, totalEarnings}: HeaderProps){
                     setNotification(unreadNotifications);
                 }
             }
-        }
+        };
         fetchNotifications();
 
         const notificationInterval = setInterval(fetchNotifications,30000);
@@ -124,45 +107,39 @@ export default function Header({onMenuClick, totalEarnings}: HeaderProps){
     },[userInfo]);
 
 
-    const login = async () => {
-        if(!web3Auth){
-            console.error('Web3Auth is not initialized');
-            return;
-        }
-        try{
-            const web3authProvider = await web3Auth.connect();
-            setProvider(web3authProvider);
-            setLoggedIn(true);
-            const user = await web3Auth.getUserInfo();
-            setUserInfo(user);
-            if(user.email){
-                localStorage.setItem('userEmail', user.email);
-                try{
-                    await createUser(user.email, user.name || 'Anonymous User');
-                }catch(error){
-                    console.error('Error creating user', error);
-                }
-            }
-        }catch(error){
-            console.error('Error logging in', error);
-        }
+    const handleLogin = async () => {
+    try {
+      setLoggedIn(true);
+      const user = await web3Auth.getUserInfo();
+      setUserInfo(user);
+
+      if (user.email) {
+        localStorage.setItem("userEmail", user.email);
+        await createUser(user.email, user.name || "Anonymous User");
+      }
+    } catch (error) {
+      console.error("Error logging in", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+        await logoutWeb3Auth();
+
+        setLoggedIn(false);
+        setUserInfo(null);
+        localStorage.removeItem("userEmail");
+
+        // Tambahkan delay agar logout benar-benar selesai sebelum reload
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
+    } catch (error) {
+        console.error("Error logging out", error);
+    }
     };
 
-    const logout = async () => {
-        if(!web3Auth){
-            console.log('Web3Auth is not initialized');
-            return;
-        }
-        try{
-            await web3Auth.logout();
-            setProvider(null);
-            setLoggedIn(false);
-            setUserInfo(null);
-            localStorage.removeItem('userEmail');
-        }catch(error){
-            console.error("Error logging out", error);
-        }
-    };
+
 
     const getUserInfo = async () => {
         if(web3Auth.connected){
@@ -252,7 +229,7 @@ export default function Header({onMenuClick, totalEarnings}: HeaderProps){
                     </span>
                 </div>
                 {!loggedIn ? (
-                    <Button onClick={login} className="bg-green-600 hover:bg-green-700 text-white text-sm md:text-base">
+                    <Button onClick={handleLogin} className="bg-green-600 hover:bg-green-700 text-white text-sm md:text-base">
                         Login
                         <LogIn className="ml-1 md:ml-2 h-4 w-4 md:h-5 md:w-5"/>
                     </Button>
@@ -269,9 +246,9 @@ export default function Header({onMenuClick, totalEarnings}: HeaderProps){
                                 {userInfo ? userInfo.name : 'Profile'}
                             </DropdownMenuItem>
                             <DropdownMenuItem>
-                                <Link href={'/settings'}>Profile</Link>
+                                <Link href={'/settings'}>Settings</Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={logout}>
+                            <DropdownMenuItem onClick={handleLogout}>
                                 Sign Out
                             </DropdownMenuItem>
                         </DropdownMenuContent>
