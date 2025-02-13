@@ -10,14 +10,38 @@ import {Menu, Coins, Leaf, Search,Bell,ChevronDown, LogIn, LogOut, User} from "l
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu"
 
 import { Badge } from "./ui/badge"
-import { Web3Auth } from '@web3auth/modal'
 
-import { web3Auth, connectWeb3Auth, logoutWeb3Auth } from "@/utils/web3auth";
 import { createUser, getUnreadNotifications, getUserBalance, getUserByEmail, markNotificationAsRead } from "@/utils/db/actions"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
 
+import { Web3Auth } from "@web3auth/modal";
+import { CHAIN_NAMESPACES } from "@web3auth/base";
+import { EthereumPrivateKeyProvider } from "@web3auth/ethereum-provider";
 
 
+const clientId = process.env.NEXT_PUBLIC_WEB3_AUTH_CLIENT_ID!; // Ambil dari env
+const rpcTarget = "https://ethereum-sepolia.publicnode.com"; // Gunakan Sepolia
+
+const chainConfig = {
+  chainNamespace: CHAIN_NAMESPACES.EIP155,
+  chainId: "0xaa36a7", // Chain ID Sepolia
+  rpcTarget,
+  displayName: "Ethereum Sepolia",
+  blockExplorerUrl: "https://sepolia.etherscan.io",
+  ticker: "ETH",
+  tickerName: "Ethereum",
+  logo: "https://ethereum.org/static/6b22807c5254f69f858f65e6a2823e3a/69b62/eth-diamond-purple.png",
+};
+
+const privateKeyProvider = new EthereumPrivateKeyProvider({
+  config: { chainConfig },
+});
+
+export const web3Auth = new Web3Auth({
+  clientId,
+  web3AuthNetwork: "testnet",
+  privateKeyProvider,
+});
 
 interface HeaderProps {
     onMenuClick: () => void;
@@ -25,7 +49,7 @@ interface HeaderProps {
 };
 
 export default function Header({onMenuClick, totalEarnings}: HeaderProps){
-    
+    const [provider, setProvider] = useState<IProvider | null>(null);
     const [loggedIn, setLoggedIn] = useState(false);
     const [loading, setLoading] = useState(true);
     const [userInfo, setUserInfo] = useState<any>(null);
@@ -33,38 +57,35 @@ export default function Header({onMenuClick, totalEarnings}: HeaderProps){
     const [notification, setNotification] = useState<Notification[]>([]);
     const [balance, setBalance] = useState(0);
     const isMobile = useMediaQuery("(max-width: 768px)");
-
     
-    useEffect(() => {
+    useEffect(()=> {
         const init = async () => {
-            try {
-                await web3Auth.initModal();
-    
-                if (web3Auth.connected) {
-                    setLoggedIn(true);
-                    const user = await web3Auth.getUserInfo();
-                    setUserInfo(user);
-    
-                    if (user.email) {
-                        localStorage.setItem('userEmail', user.email);
-                        try {
-                            await createUser(user.email, user.name || 'Anonymous user');
-                        } catch (error) {
-                            console.error('Error creating user', error);
+                try {
+                    await web3Auth.initModal();
+                    setProvider(web3Auth.provider);
+
+                    if(web3Auth.connected){
+                        setLoggedIn(true);
+                        const user = await web3Auth.getUserInfo();
+                        setUserInfo(user);
+
+                        if(user.email){
+                            localStorage.setItem('userEmail', user.email);
+                            try{
+                                await createUser(user.email, user.name || 'Anonymous user');
+                            }catch(error){
+                                console.error('Error creating user', error);
+                            }
                         }
                     }
+                } catch (error) {
+                    console.error('Error initializing web3auth', error);
+                }finally{
+                    setLoading(false);
                 }
-            } catch (error) {
-                console.error('Error initializing web3auth', error);
-            } finally {
-                setLoading(false);
-            }
         };
-    
         init();
-    }, []);
-    
-    
+    },[]);
 
     useEffect(() => {
         const fetchNotifications = async () =>  {
@@ -75,7 +96,7 @@ export default function Header({onMenuClick, totalEarnings}: HeaderProps){
                     setNotification(unreadNotifications);
                 }
             }
-        };
+        }
         fetchNotifications();
 
         const notificationInterval = setInterval(fetchNotifications,30000);
@@ -107,36 +128,44 @@ export default function Header({onMenuClick, totalEarnings}: HeaderProps){
     },[userInfo]);
 
 
-    const handleLogin = async () => {
-    try {
-      setLoggedIn(true);
-      const user = await web3Auth.getUserInfo();
-      setUserInfo(user);
+    const login = async () => {
+        if(!web3Auth){
+            console.error('Web3Auth is not initialized');
+            return;
+        }
+        try{
+            const web3authProvider = await web3Auth.connect();
+            setProvider(web3authProvider);
+            setLoggedIn(true);
+            const user = await web3Auth.getUserInfo();
+            setUserInfo(user);
+            if(user.email){
+                localStorage.setItem('userEmail', user.email);
+                try{
+                    await createUser(user.email, user.name || 'Anonymous User');
+                }catch(error){
+                    console.error('Error creating user', error);
+                }
+            }
+        }catch(error){
+            console.error('Error logging in', error);
+        }
+    };
 
-      if (user.email) {
-        localStorage.setItem("userEmail", user.email);
-        await createUser(user.email, user.name || "Anonymous User");
-      }
-    } catch (error) {
-      console.error("Error logging in", error);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-        await logoutWeb3Auth();
-
-        setLoggedIn(false);
-        setUserInfo(null);
-        localStorage.removeItem("userEmail");
-
-        // Tambahkan delay agar logout benar-benar selesai sebelum reload
-        setTimeout(() => {
-            window.location.reload();
-        }, 500);
-    } catch (error) {
-        console.error("Error logging out", error);
-    }
+    const logout = async () => {
+        if(!web3Auth){
+            console.log('Web3Auth is not initialized');
+            return;
+        }
+        try{
+            await web3Auth.logout();
+            setProvider(null);
+            setLoggedIn(false);
+            setUserInfo(null);
+            localStorage.removeItem('userEmail');
+        }catch(error){
+            console.error("Error logging out", error);
+        }
     };
 
 
@@ -229,7 +258,7 @@ export default function Header({onMenuClick, totalEarnings}: HeaderProps){
                     </span>
                 </div>
                 {!loggedIn ? (
-                    <Button onClick={handleLogin} className="bg-green-600 hover:bg-green-700 text-white text-sm md:text-base">
+                    <Button onClick={login} className="bg-green-600 hover:bg-green-700 text-white text-sm md:text-base">
                         Login
                         <LogIn className="ml-1 md:ml-2 h-4 w-4 md:h-5 md:w-5"/>
                     </Button>
@@ -246,9 +275,9 @@ export default function Header({onMenuClick, totalEarnings}: HeaderProps){
                                 {userInfo ? userInfo.name : 'Profile'}
                             </DropdownMenuItem>
                             <DropdownMenuItem>
-                                <Link href={'/settings'}>Settings</Link>
+                                <Link href={'/settings'}>Profile</Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={handleLogout}>
+                            <DropdownMenuItem onClick={logout}>
                                 Sign Out
                             </DropdownMenuItem>
                         </DropdownMenuContent>
