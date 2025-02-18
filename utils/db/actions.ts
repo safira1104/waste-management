@@ -140,3 +140,12 @@ export async function createNotification(userId:number, message:string,type:stri
     console.error('Error creating notification', e)
  }
 }
+
+export async function getRecentReports(limit: number=10) {
+    try{
+        const reports = await db.select().from(Reports).orderBy(desc(Reports.createAt)).limit(limit).execute();
+    }catch(e){
+        console.error('Error fecting recent reports',e);
+        return [];
+    }
+}

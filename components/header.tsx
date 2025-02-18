@@ -20,17 +20,16 @@ import { EthereumPrivateKeyProvider } from "@web3auth/ethereum-provider";
 
 
 const clientId = process.env.NEXT_PUBLIC_WEB3_AUTH_CLIENT_ID!; // Ambil dari env
-const rpcTarget = "https://ethereum-sepolia.publicnode.com"; // Gunakan Sepolia
 
 const chainConfig = {
   chainNamespace: CHAIN_NAMESPACES.EIP155,
   chainId: "0xaa36a7", // Chain ID Sepolia
-  rpcTarget,
+  rpcTarget: "https://rpc.ankr.com/eth_sepolia",
   displayName: "Ethereum Sepolia",
   blockExplorerUrl: "https://sepolia.etherscan.io",
   ticker: "ETH",
   tickerName: "Ethereum",
-  logo: "https://ethereum.org/static/6b22807c5254f69f858f65e6a2823e3a/69b62/eth-diamond-purple.png",
+  logo: "https://cryptologos.cc/logos/ethereum-eth-logo.png",
 };
 
 const privateKeyProvider = new EthereumPrivateKeyProvider({
@@ -38,6 +37,7 @@ const privateKeyProvider = new EthereumPrivateKeyProvider({
 });
 
 export const web3Auth = new Web3Auth({
+  chainConfig,
   clientId,
   web3AuthNetwork: "testnet",
   privateKeyProvider,
@@ -61,10 +61,10 @@ export default function Header({onMenuClick, totalEarnings}: HeaderProps){
     useEffect(()=> {
         const init = async () => {
                 try {
-                    await web3Auth.initModal();
-                    setProvider(web3Auth.provider);
-
+                    await web3Auth.initModal({ modalConfig: { theme:"dark"} });
+                    
                     if(web3Auth.connected){
+                        setProvider(web3Auth.provider);
                         setLoggedIn(true);
                         const user = await web3Auth.getUserInfo();
                         setUserInfo(user);
@@ -148,7 +148,7 @@ export default function Header({onMenuClick, totalEarnings}: HeaderProps){
                 }
             }
         }catch(error){
-            console.error('Error logging in', error);
+            console.error('Login Error', error);
         }
     };
 
@@ -167,8 +167,6 @@ export default function Header({onMenuClick, totalEarnings}: HeaderProps){
             console.error("Error logging out", error);
         }
     };
-
-
 
     const getUserInfo = async () => {
         if(web3Auth.connected){

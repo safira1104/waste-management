@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, use } from "react";
 import { MapPin, Upload, CheckCircle, Loader } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {GoogleGenerativeAI} from '@google/generative-ai';
@@ -10,7 +10,8 @@ import {toast} from 'react-hot-toast';
 import { promises } from "dns";
 import { parse, resolve } from "path";
 import { rejects } from "assert";
-import { createReport } from "@/utils/db/actions";
+import { createReport, getRecentReports, getUserByEmail } from "@/utils/db/actions";
+import { report } from "process";
 
 const geminiApiKey = process.env.GEMINI_API_KEY as any;
 
@@ -199,6 +200,56 @@ export default function ReportPage(){
             setIsSubmitting(false);
         }
      };
+
+     useEffect(() => {
+        const checkUser = async()=>{
+            const email = localStorage.getItem("userEmail");
+            if(email){
+                const user = await getUserByEmail(email);
+                setUser(user);
+
+                const recentReports = await getRecentReports() as any;
+                const formattedReports = recentReports?.map((report: any)=> ({
+                    ...report,
+                    createdAt: report.createdAt.toISOString().split('T')[0]
+                }));
+                setReports(formattedReports);
+            } else {
+                router.push("/");
+            }
+        };
+        checkUser();
+     },[router]);
+
+     return (
+        <div className="p-8 max-w-4xl mx-auto">
+            <h1 className="text-3xl font-semibold mb-6 text-gray-800">
+                Report Waste
+            </h1>
+
+            <form onSubmit={handleSubmit} className="bg-white p-8 rounded-2xl shadow-lg mb-12">
+                <div className="mb-8">
+                    <label htmlFor="waste-image" className="block text-lg font-medium text-gray-700 mb-2">
+                        Upload Waste Image
+                    </label>
+                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2">
+                        <div className="space-y-1 text-center">
+                            <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                            <div className="flex text-sm text-gray-600">
+                                <label htmlFor="waste-image" 
+                                        className="relative cursor-pointer bg-white rounded-md">
+                                    <span>Upload a file</span>
+                                    <input type="file" id="waste-image" name="waste-image" className="sr-only" onChange={handleFileChange} accept="image/*" />        
+                                </label>
+                                <p className="pl-1">or drag and drop</p>
+                            </div>
+                            <p className="text-xs text-gray-500">PNG,JPG,GIF up to 10MB</p>
+                        </div>
+                    </div>   
+                </div>
+            </form>
+        </div>
+     )
 }
 
     
